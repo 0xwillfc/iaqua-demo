@@ -10,6 +10,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Streamlit Cloud expoe secrets via st.secrets, nao como variavel de ambiente.
+# src/config.py le tudo com os.getenv(), entao a ponte abaixo e obrigatoria -
+# sem ela, EMBEDDING_PROVIDER cai no default "google" e quebra o import.
+try:
+    for _chave, _valor in st.secrets.items():
+        os.environ.setdefault(_chave, str(_valor))
+except Exception:
+    pass  # sem secrets.toml local (rodando so com .env) - segue normal
+
 from src.rag import responder  # noqa: E402
 
 EXEMPLOS = [
