@@ -42,12 +42,77 @@ def formatar_contexto(resultados):
     return "\n\n".join(partes)
 
 
+def formatar_evidencias(resultados):
+    return [
+        {
+            "titulo": r["metadados"]["titulo"],
+            "instituicao": r["metadados"].get("instituicao", ""),
+            "ano": r["metadados"].get("ano", ""),
+            "pagina": r["metadados"]["pagina"],
+            "trecho": r["texto"][:300] + ("..." if len(r["texto"]) > 300 else ""),
+            "similaridade": round(1 - r["distancia"], 4),
+        }
+        for r in resultados
+    ]
+
+
+def buscar(pergunta: str, top_k: int = None):
+    """Etapa de recuperacao: devolve (contexto para o modelo, evidencias)."""
+    resultados = search(pergunta, top_k or TOP_K)
+    return formatar_contexto(resultados), formatar_evidencias(resultados)
+
+
+_anthropic_client = None
+
+
+def _parametros_anthropic(modelo: str, usuario: str) -> dict:
+    global _anthropic_client
+    import anthropic
+
+    from .config import ANTHROPIC_EFFORT, ANTHROPIC_MAX_TOKENS
+
+    if _anthropic_client is None:
+        _anthropic_client = anthropic.Anthropic()  # le ANTHROPIC_API_KEY
+
+    # Sem temperature: os modelos Claude atuais nao aceitam parametros de
+    # amostragem; o raciocinio e controlado por output_config.effort.
+    # fallbacks="default": se o filtro de seguranca recusar por engano,
+    # a API refaz a chamada em outro modelo em vez de devolver erro.
+    return dict(
+        model=modelo,
+        max_tokens=ANTHROPIC_MAX_TOKENS,
+        system=PROMPT_SISTEMA,
+        messages=[{"role": "user", "content": usuario}],
+        output_config={"effort": ANTHROPIC_EFFORT},
+        betas=["server-side-fallback-2026-07-01"],
+        fallbacks="default",
+    )
+
+
+def _aviso_parada(stop_reason: str) -> str:
+    if stop_reason == "refusal":
+        return "O modelo recusou responder a esta pergunta."
+    if stop_reason == "max_tokens":
+        return "\n\n_(resposta interrompida pelo limite de tamanho)_"
+    return ""
+
+
+def _anthropic_client_messages():
+    # _parametros_anthropic cria o cliente; chamado antes deste acesso.
+    return _anthropic_client.beta.messages
+
+
 def gerar_resposta(pergunta: str, contexto: str) -> str:
     usuario = PROMPT_USUARIO.format(contexto=contexto, pergunta=pergunta)
     modelo = get_generation_model()
 
     if GENERATION_PROVIDER == "anthropic":
-        return _gerar_anthropic(modelo, usuario)
+        params = _parametros_anthropic(modelo, usuario)
+        resp = _anthropic_client_messages().create(**params)
+        if resp.stop_reason == "refusal":
+            return _aviso_parada("refusal")
+        texto = "".join(b.text for b in resp.content if b.type == "text").strip()
+        return texto + _aviso_parada(resp.stop_reason)
 
     if GENERATION_PROVIDER == "nvidia":
         import os
@@ -83,54 +148,28 @@ def gerar_resposta(pergunta: str, contexto: str) -> str:
     return response.text
 
 
-_anthropic_client = None
+def gerar_resposta_stream(pergunta: str, contexto: str):
+    """Gera a resposta em pedacos (para exibir enquanto o modelo escreve).
 
+    So o provedor anthropic transmite de fato; os demais devolvem o texto
+    inteiro de uma vez.
+    """
+    if GENERATION_PROVIDER != "anthropic":
+        yield gerar_resposta(pergunta, contexto)
+        return
 
-def _gerar_anthropic(modelo: str, usuario: str) -> str:
-    global _anthropic_client
-    import anthropic
-
-    from .config import ANTHROPIC_EFFORT, ANTHROPIC_MAX_TOKENS
-
-    if _anthropic_client is None:
-        _anthropic_client = anthropic.Anthropic()  # le ANTHROPIC_API_KEY
-
-    # Sem temperature: os modelos Claude atuais nao aceitam parametros de
-    # amostragem; o raciocinio e controlado por output_config.effort.
-    # fallbacks="default": se o filtro de seguranca recusar por engano,
-    # a API refaz a chamada em outro modelo em vez de devolver erro.
-    resp = _anthropic_client.beta.messages.create(
-        model=modelo,
-        max_tokens=ANTHROPIC_MAX_TOKENS,
-        system=PROMPT_SISTEMA,
-        messages=[{"role": "user", "content": usuario}],
-        output_config={"effort": ANTHROPIC_EFFORT},
-        betas=["server-side-fallback-2026-07-01"],
-        fallbacks="default",
-    )
-    if resp.stop_reason == "refusal":
-        return "O modelo recusou responder a esta pergunta."
-    texto = "".join(b.text for b in resp.content if b.type == "text").strip()
-    if resp.stop_reason == "max_tokens":
-        texto += "\n\n_(resposta interrompida pelo limite de tamanho)_"
-    return texto
+    usuario = PROMPT_USUARIO.format(contexto=contexto, pergunta=pergunta)
+    params = _parametros_anthropic(get_generation_model(), usuario)
+    with _anthropic_client_messages().stream(**params) as stream:
+        for texto in stream.text_stream:
+            yield texto
+        final = stream.get_final_message()
+    aviso = _aviso_parada(final.stop_reason)
+    if aviso:
+        yield aviso if aviso.startswith("\n") else "\n\n" + aviso
 
 
 def responder(pergunta: str, top_k: int = None):
-    top_k = top_k or TOP_K
-    resultados = search(pergunta, top_k)
-    contexto = formatar_contexto(resultados)
+    contexto, evidencias = buscar(pergunta, top_k)
     resposta = gerar_resposta(pergunta, contexto)
-
-    evidencias = [
-        {
-            "titulo": r["metadados"]["titulo"],
-            "instituicao": r["metadados"].get("instituicao", ""),
-            "ano": r["metadados"].get("ano", ""),
-            "pagina": r["metadados"]["pagina"],
-            "trecho": r["texto"][:300] + ("..." if len(r["texto"]) > 300 else ""),
-            "similaridade": round(1 - r["distancia"], 4),
-        }
-        for r in resultados
-    ]
     return {"resposta": resposta, "evidencias": evidencias}

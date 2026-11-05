@@ -44,6 +44,9 @@ com sua chave para achar um substituto disponível na conta antes de reindexar
    # medium/high = mais lento e mais caro)
    ```
 
+   **Depois de salvar ou alterar os secrets, reinicie o app** (menu ⋮ →
+   **Reboot app**): a configuração é lida quando o app inicia.
+
    Em 05/11/2026 o gerador `meta/llama-3.2-11b-vision-instruct` também foi
    desativado pela NVIDIA. Por isso a geração passou para o Claude. A Anthropic
    não oferece modelo de embedding, então a busca continua na NVIDIA e o
