@@ -33,8 +33,6 @@ from src.rag import buscar, gerar_resposta_stream  # noqa: E402
 BASE = Path(__file__).resolve().parent
 LOGO = BASE / "assets" / "iaqua-rag-logo.svg"
 
-# Modelo usado no estudo (banner/artigo) - a demo ao vivo usa outro gerador.
-MODELO_DO_ESTUDO = "Llama 3.1-70B-Instruct"
 NOMES_MODELOS = {
     "claude-sonnet-5-5": "Claude Sonnet 5.5",
     "claude-haiku-5-5": "Claude Haiku 5.5",
@@ -49,10 +47,9 @@ EXEMPLOS = [
         "produção de tilápia em tanques-rede?",
     ),
     (
-        "CONAMA classe 2",
-        "Quais parâmetros de qualidade da água são classificados como padrões CONAMA "
-        "classe 2 relevantes para a piscicultura e qual deles também é monitorado "
-        "diariamente nas boas práticas de manejo?",
+        "Manejo alimentar",
+        "Com que frequência deve ser feita a biometria dos peixes e para que ela "
+        "serve no manejo alimentar?",
     ),
     (
         "Premissa falsa",
@@ -347,9 +344,6 @@ elif not executar:
 st.markdown(
     f"""
     <div class="footer-note">
-      Demonstração ao vivo: geração das respostas com <b>{html.escape(nome_modelo())}</b>.
-      Os resultados do estudo apresentados no banner foram obtidos com
-      <b>{MODELO_DO_ESTUDO}</b>.<br>
       Protótipo de pesquisa. Confira sempre a fonte citada antes de usar a resposta.
     </div>
     """,
