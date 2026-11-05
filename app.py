@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from src.config import required_api_keys  # noqa: E402
 from src.rag import responder  # noqa: E402
 
 EXEMPLOS = [
@@ -28,10 +29,13 @@ def consultar(pergunta: str):
     pergunta = (pergunta or "").strip()
     if not pergunta:
         return "Digite uma pergunta.", ""
-    if not os.environ.get("NVIDIA_API_KEY"):
+    faltando = [k for k in required_api_keys() if not os.environ.get(k)]
+    if faltando:
         return (
-            "Erro de configuração: a variável NVIDIA_API_KEY não está definida "
-            "neste Space. Configure-a em Settings → Variables and secrets.",
+            "Erro de configuração: "
+            + ", ".join(faltando)
+            + " não definida(s) neste Space. Configure em Settings → "
+            "Variables and secrets.",
             "",
         )
     try:

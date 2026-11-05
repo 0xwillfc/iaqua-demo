@@ -1,3 +1,4 @@
+anthropic==2.5.0
 chromadb==1.5.9
 openai==3.3.1
 python-dotenv==1.2.3

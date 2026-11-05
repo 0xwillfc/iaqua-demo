@@ -13,7 +13,8 @@ DB_DIR = BASE_DIR / "data" / "chroma_db"
 
 COLLECTION_NAME = "aquia_rag"
 
-# Provedores: "google" ou "nvidia"
+# Provedores de embedding: "google" ou "nvidia"
+# Provedores de geracao: "google", "nvidia" ou "anthropic"
 EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "google").lower()
 GENERATION_PROVIDER = os.getenv("GENERATION_PROVIDER", EMBEDDING_PROVIDER).lower()
 
@@ -32,6 +33,16 @@ NVIDIA_GENERATION_MODEL = os.getenv(
     "NVIDIA_GENERATION_MODEL", "meta/llama-3.1-70b-instruct"
 )
 
+# --- Anthropic (Claude) - so geracao; a Anthropic nao oferece embeddings,
+# entao a recuperacao continua no provedor de EMBEDDING_PROVIDER. ---
+# claude-sonnet-5-5: bom equilibrio entre qualidade, velocidade e custo para a demo.
+# Alternativa mais barata e rapida: claude-haiku-5-5.
+ANTHROPIC_GENERATION_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5-5")
+# low = respostas mais rapidas (bom para demo ao vivo); medium/high = mais raciocinio
+ANTHROPIC_EFFORT = os.getenv("ANTHROPIC_EFFORT", "low")
+# O raciocinio interno do modelo tambem conta neste limite.
+ANTHROPIC_MAX_TOKENS = 8000
+
 CHUNK_SIZE = 1200
 CHUNK_OVERLAP = 200
 TOP_K = 5
@@ -41,8 +52,19 @@ MAX_OUTPUT_TOKENS = 1024
 
 
 def get_generation_model():
-    return (
-        NVIDIA_GENERATION_MODEL
-        if GENERATION_PROVIDER == "nvidia"
-        else GOOGLE_GENERATION_MODEL
-    )
+    if GENERATION_PROVIDER == "anthropic":
+        return ANTHROPIC_GENERATION_MODEL
+    if GENERATION_PROVIDER == "nvidia":
+        return NVIDIA_GENERATION_MODEL
+    return GOOGLE_GENERATION_MODEL
+
+
+def required_api_keys():
+    """Variaveis de ambiente necessarias para os provedores configurados."""
+    chaves = {"nvidia": "NVIDIA_API_KEY", "anthropic": "ANTHROPIC_API_KEY"}
+    necessarias = []
+    for provedor in (EMBEDDING_PROVIDER, GENERATION_PROVIDER):
+        chave = chaves.get(provedor)
+        if chave and chave not in necessarias:
+            necessarias.append(chave)
+    return necessarias

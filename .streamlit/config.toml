@@ -1,0 +1,7 @@
+[theme]
+# Tema claro fixo: o visual da demo foi desenhado para fundo claro.
+base = "light"
+primaryColor = "#0b2f5b"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#edf6fa"
+textColor = "#16333d"

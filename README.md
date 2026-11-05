@@ -31,12 +31,24 @@ com sua chave para achar um substituto disponível na conta antes de reindexar
 3. Em **Settings → Secrets** do app, cole (formato TOML, não é tabela):
 
    ```toml
-   NVIDIA_API_KEY = "sua_chave_aqui"
+   # Recuperação (embedding) - continua na NVIDIA; o índice foi gerado com este modelo
+   NVIDIA_API_KEY = "sua_chave_nvidia"
    EMBEDDING_PROVIDER = "nvidia"
-   GENERATION_PROVIDER = "nvidia"
    NVIDIA_EMBEDDING_MODEL = "nvidia/nemotron-3-embed-1b"
-   NVIDIA_GENERATION_MODEL = "meta/llama-3.2-11b-vision-instruct"
+
+   # Geração da resposta - Claude (Anthropic)
+   GENERATION_PROVIDER = "anthropic"
+   ANTHROPIC_API_KEY = "sua_chave_anthropic"
+   # Opcionais: ANTHROPIC_MODEL (padrão claude-sonnet-5-5; mais barato e
+   # rápido: claude-haiku-5-5) e ANTHROPIC_EFFORT (padrão low;
+   # medium/high = mais lento e mais caro)
    ```
+
+   Em 05/11/2026 o gerador `meta/llama-3.2-11b-vision-instruct` também foi
+   desativado pela NVIDIA. Por isso a geração passou para o Claude. A Anthropic
+   não oferece modelo de embedding, então a busca continua na NVIDIA e o
+   índice não precisa ser refeito. Para voltar a gerar pela NVIDIA, use
+   `GENERATION_PROVIDER = "nvidia"` e um `NVIDIA_GENERATION_MODEL` ativo.
 
 Nunca coloque a chave diretamente no código, no requirements.txt, ou em
 `.streamlit/secrets.toml` versionado (esse arquivo já está no `.gitignore`).
